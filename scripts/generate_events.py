@@ -8,6 +8,7 @@ import os
 import socket
 import time
 import uuid
+from collections import Counter
 from pathlib import Path
 
 
@@ -68,6 +69,8 @@ def main() -> int:
     connection = None
     connected_count = 0
     failed_count = 0
+    attempted_by_facility: Counter[str] = Counter()
+    sent_by_facility: Counter[str] = Counter()
     started = time.monotonic()
 
     with record_path.open("w", encoding="utf-8", buffering=1) as records:
@@ -81,6 +84,8 @@ def main() -> int:
             event_format = (
                 formats[(sequence - 1) % len(formats)] if args.format == "both" else args.format
             )
+            facility = "local6" if event_format == "syslog" else "local7"
+            attempted_by_facility[facility] += 1
             payload = build_event(args.run_id, sequence, event_format, timestamp, hostname)
             outcome = "failed"
             error = None
@@ -92,6 +97,7 @@ def main() -> int:
                 connection.sendall(frame_event(payload))
                 outcome = "sent"
                 connected_count += 1
+                sent_by_facility[facility] += 1
             except OSError as exc:
                 error = str(exc)
                 failed_count += 1
@@ -106,6 +112,7 @@ def main() -> int:
                         "sequence": sequence,
                         "generated_at": timestamp,
                         "format": event_format,
+                        "facility": facility,
                         "outcome": outcome,
                         "error": error,
                     },
@@ -123,8 +130,10 @@ def main() -> int:
                 "attempted": count,
                 "sendall_succeeded": connected_count,
                 "send_errors": failed_count,
+                "attempted_by_facility": dict(attempted_by_facility),
+                "sendall_succeeded_by_facility": dict(sent_by_facility),
                 "sender_log": str(record_path),
-                "note": "sendall success is not confirmation of collector or Log Analytics ingestion",
+                "note": "sendall success is not confirmation of forwarder, collector, or Log Analytics receipt",
             },
             indent=2,
         )

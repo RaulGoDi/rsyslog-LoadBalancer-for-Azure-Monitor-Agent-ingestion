@@ -92,8 +92,11 @@ class GenerateEventsTests(unittest.TestCase):
             self.assertEqual(len(connection_count), 1)
             self.assertEqual(len(received), 3)
             self.assertTrue(all(b"run_id=persistent-run" in event for event in received))
+            self.assertEqual([event.startswith(b"<182>") for event in received], [True, False, True])
             result = json.loads(output.getvalue())
             self.assertEqual(result["sendall_succeeded"], 3)
+            self.assertEqual(result["attempted_by_facility"], {"local6": 2, "local7": 1})
+            self.assertEqual(result["sendall_succeeded_by_facility"], {"local6": 2, "local7": 1})
 
 
 if __name__ == "__main__":

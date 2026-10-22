@@ -91,7 +91,7 @@ done
 config_dir="/etc/rsyslog.d"
 config_file="${config_dir}/49-ama-target-pool.conf"
 state_dir="/var/lib/rsyslog-ama-target-pool"
-mkdir -p "$config_dir" "$state_dir" /var/spool/rsyslog
+mkdir -p "$config_dir" "$state_dir" /var/spool/rsyslog /var/log/ama-lab
 chmod 0750 "$state_dir"
 
 other_configs=()
@@ -136,7 +136,9 @@ candidate=$(mktemp "${config_dir}/.49-ama-target-pool.XXXXXX")
     printf '%s\n' 'input(type="imtcp" port="514")'
   fi
   cat <<EOF
+template(name="AmaLabForwarderCapture" type="string" string="%timegenerated:::date-rfc3339% %syslogfacility-text% %msg%\\n")
 if (\$syslogfacility-text == "local6" or \$syslogfacility-text == "local7") then {
+    action(type="omfile" file="/var/log/ama-lab/forwarder-received.log" template="AmaLabForwarderCapture")
     action(
         type="omfwd"
         target=[${target_values}]
