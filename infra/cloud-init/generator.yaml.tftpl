@@ -1,0 +1,9 @@
+#cloud-config
+write_files:
+  - path: /usr/local/bin/generate-events.py
+    owner: root:root
+    permissions: "0755"
+    encoding: b64
+    content: "${generator_script_b64}"
+runcmd:
+  - [bash, -lc, "set -Eeuo pipefail; apt-get update; DEBIAN_FRONTEND=noninteractive apt-get install -y python3; install -d -o ${admin_username} -g ${admin_username} /var/lib/rsyslog-lab/results"]

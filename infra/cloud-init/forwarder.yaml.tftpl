@@ -1,0 +1,23 @@
+#cloud-config
+write_files:
+  - path: /usr/local/sbin/configure-rsyslog-target-pool.sh
+    owner: root:root
+    permissions: "0750"
+    encoding: b64
+    content: "${forwarder_setup_b64}"
+  - path: /usr/local/sbin/discover-collector-ips.py
+    owner: root:root
+    permissions: "0750"
+    encoding: b64
+    content: "${discovery_script_b64}"
+  - path: /usr/local/sbin/bootstrap-forwarder.sh
+    owner: root:root
+    permissions: "0750"
+    encoding: b64
+    content: "${bootstrap_script_b64}"
+  - path: /etc/ama-lab/collector-discovery.json
+    owner: root:root
+    permissions: "0640"
+    content: '{"subscription_id":"${subscription_id}","resource_group_name":"${resource_group_name}","scale_set_name":"${collector_scale_set_name}","expected_count":2}'
+runcmd:
+  - [bash, -lc, "/usr/local/sbin/bootstrap-forwarder.sh"]

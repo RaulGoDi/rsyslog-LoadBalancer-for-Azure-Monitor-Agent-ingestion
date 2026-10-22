@@ -1,0 +1,16 @@
+subscription_id = "00000000-0000-0000-0000-000000000000"
+ssh_public_key  = "ssh-ed25519 REPLACE_WITH_YOUR_PUBLIC_KEY"
+
+name_prefix = "rsyslog-lab"
+location    = "spaincentral"
+
+# Set only after checking zone, image, SKU, and quota availability in Spain Central.
+availability_zones = []
+
+# To enable the optional jump host, set this to true and provide your real public CIDR.
+enable_jump_host = false
+# admin_cidr = "203.0.113.10/32"
+
+tags = {
+  owner = "replace-me"
+}

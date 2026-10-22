@@ -1,0 +1,17 @@
+// Replace this value with the run ID printed by generate_events.py.
+let runId = "replace-with-run-id";
+union
+    (Syslog
+    | where SyslogMessage contains runId
+    | project TimeGenerated, SourceTable = "Syslog", EventText = SyslogMessage),
+    (CommonSecurityLog
+    | where AdditionalExtensions contains runId
+    | project TimeGenerated, SourceTable = "CommonSecurityLog", EventText = tostring(AdditionalExtensions))
+| extend Sequence = tolong(extract(@"sequence=(\d+)", 1, EventText))
+| summarize
+    Rows = count(),
+    UniqueSequences = dcount(Sequence),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by SourceTable
+| order by SourceTable asc

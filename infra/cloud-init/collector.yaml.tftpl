@@ -1,0 +1,9 @@
+#cloud-config
+write_files:
+  - path: /usr/local/sbin/configure-ama-collector.sh
+    owner: root:root
+    permissions: "0750"
+    encoding: b64
+    content: "${collector_setup_b64}"
+runcmd:
+  - [bash, -lc, "set -Eeuo pipefail; /usr/local/sbin/configure-ama-collector.sh"]

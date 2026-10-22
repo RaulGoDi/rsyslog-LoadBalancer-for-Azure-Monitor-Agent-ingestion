@@ -1,0 +1,26 @@
+# Terraform working data and state
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Local inputs and credentials
+*.tfvars
+*.tfvars.json
+!infra/lab.tfvars.example
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+# Local test output
+results/
+*.jsonl
+*.log
+__pycache__/
+*.py[cod]
