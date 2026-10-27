@@ -275,7 +275,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "collectors" {
   name                            = local.collector_name
   resource_group_name             = azurerm_resource_group.lab.name
   location                        = azurerm_resource_group.lab.location
-  sku                             = "Standard_D2s_v5"
+  sku                             = var.lab_vm_size
   instances                       = 2
   zones                           = var.availability_zones
   zone_balance                    = length(var.availability_zones) > 0
@@ -298,7 +298,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "collectors" {
     publisher = var.rhel_image_publisher
     offer     = var.rhel_image_offer
     sku       = var.rhel_image_sku
-    version   = "latest"
+    version   = var.rhel_image_version
   }
 
   os_disk {
@@ -335,7 +335,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "forwarders" {
   name                            = local.forwarder_name
   resource_group_name             = azurerm_resource_group.lab.name
   location                        = azurerm_resource_group.lab.location
-  sku                             = "Standard_D2s_v5"
+  sku                             = var.lab_vm_size
   instances                       = 2
   zones                           = var.availability_zones
   zone_balance                    = length(var.availability_zones) > 0
@@ -363,7 +363,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "forwarders" {
     publisher = var.rhel_image_publisher
     offer     = var.rhel_image_offer
     sku       = var.rhel_image_sku
-    version   = "latest"
+    version   = var.rhel_image_version
   }
 
   os_disk {
@@ -515,7 +515,7 @@ resource "azurerm_linux_virtual_machine" "generator" {
   name                            = "${local.prefix}-generator"
   resource_group_name             = azurerm_resource_group.lab.name
   location                        = azurerm_resource_group.lab.location
-  size                            = "Standard_D2s_v5"
+  size                            = var.lab_vm_size
   admin_username                  = var.admin_username
   admin_password                  = local.admin_password
   disable_password_authentication = false
@@ -536,7 +536,7 @@ resource "azurerm_linux_virtual_machine" "generator" {
     publisher = var.ubuntu_image_publisher
     offer     = var.ubuntu_image_offer
     sku       = var.ubuntu_image_sku
-    version   = "latest"
+    version   = var.ubuntu_image_version
   }
 
   depends_on = [
@@ -604,7 +604,7 @@ resource "azurerm_linux_virtual_machine" "jump" {
   name                            = "${local.prefix}-jump"
   resource_group_name             = azurerm_resource_group.lab.name
   location                        = azurerm_resource_group.lab.location
-  size                            = "Standard_B2s"
+  size                            = var.jump_vm_size
   admin_username                  = var.admin_username
   admin_password                  = local.admin_password
   disable_password_authentication = false
@@ -614,14 +614,14 @@ resource "azurerm_linux_virtual_machine" "jump" {
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "StandardSSD_LRS"
-    disk_size_gb         = 32
+    disk_size_gb         = 64
   }
 
   source_image_reference {
     publisher = var.ubuntu_image_publisher
     offer     = var.ubuntu_image_offer
     sku       = var.ubuntu_image_sku
-    version   = "latest"
+    version   = var.ubuntu_image_version
   }
 
   depends_on = [

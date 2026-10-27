@@ -4,7 +4,8 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 name_prefix = "rsyslog-lab"
 location    = "spaincentral"
 
-# Set only after checking zone, image, SKU, and quota availability in Spain Central.
+# scripts/prepare_lab.py discovers sizes, images, zones, and vCPU quota interactively.
+# For manual deployment, set only after checking regional availability and quota.
 availability_zones = []
 
 # To enable the optional jump host, set this to true and provide your real public CIDR.

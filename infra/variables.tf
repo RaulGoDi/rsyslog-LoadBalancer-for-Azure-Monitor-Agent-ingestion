@@ -31,6 +31,30 @@ variable "admin_username" {
   default     = "labadmin"
 }
 
+variable "lab_vm_size" {
+  description = "VM size for the generator and both two-instance VM scale sets."
+  type        = string
+  default     = "Standard_D2s_v5"
+}
+
+variable "jump_vm_size" {
+  description = "VM size for the optional jump host."
+  type        = string
+  default     = "Standard_B2s"
+}
+
+variable "rhel_image_version" {
+  description = "Collector/forwarder image version. The interactive preflight pins a discovered version."
+  type        = string
+  default     = "latest"
+}
+
+variable "ubuntu_image_version" {
+  description = "Generator/jump image version. The interactive preflight pins a discovered version."
+  type        = string
+  default     = "latest"
+}
+
 variable "rhel_image_publisher" {
   description = "Marketplace image publisher for RHEL 9 forwarders and collectors."
   type        = string

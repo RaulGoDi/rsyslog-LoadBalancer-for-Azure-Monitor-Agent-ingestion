@@ -15,6 +15,41 @@ A reproducible Azure lab for measuring per-message distribution from one persist
 
 Prerequisites: [Terraform](https://developer.hashicorp.com/terraform/install) 1.5+, [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), and Contributor-level permissions (plus permission to create role assignments) in the target subscription. No existing resource group, SSH key, or key-generation tool is required. Terraform generates the administrator password for all lab VMs without prompting.
 
+### One-script lab setup (recommended)
+
+Install Python 3.9+, Azure CLI, and Terraform first, and ensure `python` (or `python3`), `az`, and `terraform` are on PATH. The script does not install tools. Clone this repository (or download and extract its ZIP), sign in, and run the setup script from the repository root:
+
+```text
+git clone https://github.com/RaulGoDi/rsyslog-LoadBalancer-for-Azure-Monitor-Agent-ingestion.git
+cd rsyslog-LoadBalancer-for-Azure-Monitor-Agent-ingestion
+az login
+python scripts/prepare_lab.py --subscription-id "<SUBSCRIPTION_ID>" --location spaincentral
+```
+
+On Linux/macOS, use `python3` if needed. No Python packages or Azure CLI extensions are installed or required. The helper:
+
+1. Queries your subscription's regional VM catalog and offers unrestricted x64/Gen2 sizes with at least 2 vCPUs and 4 GiB memory. It defaults to D2s_v5 when available; the list is not a cost ranking. Your selected lab size applies to all five lab VMs. It separately prompts for an optional jump host and administrator CIDR.
+2. Lists available zones after excluding subscription-restricted zones, and lets you choose all listed zones or no explicit zones. Zone placement applies only to the two VM scale sets.
+3. Checks remaining regional and VM-family vCPU quota using the built-in `az vm list-usage` command, counting five lab instances plus the optional jump host. It stops on insufficient or unverifiable quota. This is a conservative new-deployment check: existing resources, including an already-deployed lab, count as usage.
+4. Discovers OS SKUs/versions and prefers the newest **bootstrap-supported** release: RHEL 9 for forwarders/collectors and Ubuntu 24.04 LTS for generator/jump host. It pins the selected image versions instead of leaving `latest`. It checks image architecture, generation, OS disk size, deprecation metadata, and purchase-plan requirements. The optional jump host uses a 64-GiB disk like the generator.
+5. If supported images are unavailable, prompts to inspect alternate publishers/offers/SKUs, but **stops before Terraform planning for unsupported OS families/releases**. Catalog availability is not bootstrap or AMA compatibility. Newer LTS/major releases require reviewing/testing the package installer, rsyslog target-pool support, and AMA compatibility before expanding the supported list in the helper and bootstrap scripts. The catalog does not reliably establish vendor support lifetime.
+6. Shows your choices and asks for confirmation, then writes ignored `infra/preflight.tfvars.json` and runs Terraform `init`, `validate`, and `plan` (saved as `infra/lab.tfplan`). It refuses to overwrite an existing preflight input file or saved plan.
+7. After the plan succeeds, asks **"Apply this saved plan now?"**. Answer **yes** to create billable Azure resources using that exact plan. Answer **no** (or press Enter) to stop without applying; it prints the full command, including the absolute Terraform directory, to apply later. Failed init/validate/plan commands stop the script before any apply prompt.
+
+After a successful apply, follow [Administrator password and SSH access](#administrator-password-and-ssh-access) to connect and [Lab test sequence](#lab-test-sequence) to run the experiment. Terraform apply success alone does not confirm cloud-init, AMA bootstrap, or message distribution; tests are not run automatically.
+
+The helper uses Terraform defaults for other settings. To retain custom names/tags from an existing input file, add `--var-file <path-to-lab.tfvars>`; discovered choices override conflicting values from that file. Keep the saved preflight input file for subsequent operations:
+
+```text
+terraform -chdir=infra apply lab.tfplan
+terraform -chdir=infra output -raw admin_password
+terraform -chdir=infra destroy -var-file=preflight.tfvars.json
+```
+
+For custom names/tags, also pass your original base `-var-file` **before** `-var-file=preflight.tfvars.json` on later plan/destroy commands. The helper does not sign in for you, automatically accept Marketplace agreements, request quota, guarantee live physical capacity, validate every disk capability, or prove bootstrap success. Review the saved plan and pricing before applying. Discovery reduces stale catalog defaults; it does not make arbitrary future OS releases automatically compatible.
+
+### Manual Terraform workflow
+
 ```powershell
 git clone https://github.com/RaulGoDi/rsyslog-LoadBalancer-for-Azure-Monitor-Agent-ingestion.git
 cd rsyslog-LoadBalancer-for-Azure-Monitor-Agent-ingestion\infra
@@ -183,7 +218,7 @@ Collectors have no public IP. Retrieve capture logs through the optional jump ho
 
 ## Cost and cleanup
 
-The lab includes five Standard D2s_v5 machines (one generator, two forwarders, two collectors) plus an optional B2s jump VM, RHEL PAYG licensing, Standard SSD OS disks, a NAT Gateway and public IP, a Standard Load Balancer, and Log Analytics/Sentinel ingestion. Actual cost varies by region, runtime, retention, and ingested volume; stop or destroy the lab when tests are complete.
+By default the lab includes five Standard D2s_v5 machines (one generator, two forwarders, two collectors) plus an optional B2s jump VM, RHEL PAYG licensing, 64-GiB Standard SSD OS disks, a NAT Gateway and public IP, a Standard Load Balancer, and Log Analytics/Sentinel ingestion. The preflight helper can select different sizes; review those prices separately. Actual cost varies by region, runtime, retention, and ingested volume; stop or destroy the lab when tests are complete.
 
 To remove a deployment, review the targeted workspace/state first, then run `terraform destroy -var-file=lab.tfvars` from `infra/`. This removes the lab resource group resources and retained Log Analytics data.
 
