@@ -31,16 +31,6 @@ variable "admin_username" {
   default     = "labadmin"
 }
 
-variable "ssh_public_key" {
-  description = "SSH public key installed on the lab VMs. Never provide a private key."
-  type        = string
-
-  validation {
-    condition     = can(regex("^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+) ", trimspace(var.ssh_public_key)))
-    error_message = "ssh_public_key must be an OpenSSH Ed25519, RSA, or ECDSA public key."
-  }
-}
-
 variable "rhel_image_publisher" {
   description = "Marketplace image publisher for RHEL 9 forwarders and collectors."
   type        = string

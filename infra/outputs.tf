@@ -32,3 +32,13 @@ output "generator_private_ip" {
   description = "Private IP address of the event generator."
   value       = azurerm_network_interface.generator.private_ip_address
 }
+output "admin_password" {
+  description = "Generated lab-only administrator password. Change it on every VM if keeping the lab beyond testing."
+  value       = local.admin_password
+  sensitive   = true
+}
+
+output "password_reminder" {
+  description = "Lab credential lifetime reminder."
+  value       = "LAB ONLY: Change the administrator password on every VM if keeping these VMs longer than needed for testing."
+}

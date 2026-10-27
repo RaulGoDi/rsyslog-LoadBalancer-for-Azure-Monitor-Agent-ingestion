@@ -13,12 +13,12 @@ A reproducible Azure lab for measuring per-message distribution from one persist
 
 ## Option 1: Deploy and test with Terraform
 
-Prerequisites: [Terraform](https://developer.hashicorp.com/terraform/install) 1.5+, [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), Contributor-level permissions (plus permission to create role assignments) in the target subscription, and an SSH **public** key.
+Prerequisites: [Terraform](https://developer.hashicorp.com/terraform/install) 1.5+, [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), and Contributor-level permissions (plus permission to create role assignments) in the target subscription. No existing resource group, SSH key, or key-generation tool is required. Terraform generates the administrator password for all lab VMs without prompting.
 
 ```powershell
 git clone https://github.com/RaulGoDi/rsyslog-LoadBalancer-for-Azure-Monitor-Agent-ingestion.git
 cd rsyslog-LoadBalancer-for-Azure-Monitor-Agent-ingestion\infra
-copy lab.tfvars.example lab.tfvars      # set ssh_public_key; optionally admin_cidr/enable_jump_host
+copy lab.tfvars.example lab.tfvars      # optionally set admin_cidr/enable_jump_host
 
 $subscriptionId = "<SUBSCRIPTION_ID>"
 az login
@@ -28,9 +28,26 @@ terraform init
 terraform validate
 terraform plan -var-file="lab.tfvars" "-var=subscription_id=$subscriptionId" -out="lab.tfplan"
 terraform apply "lab.tfplan"
+terraform output -raw admin_password
 ```
 
 Review the plan before applying: apply creates billable resources. Then follow [Lab test sequence](#lab-test-sequence) to run the generator and compare counts. When finished, run `terraform destroy -var-file="lab.tfvars" "-var=subscription_id=$subscriptionId"`.
+
+### Administrator password and SSH access
+
+Terraform's Random provider generates a 10-character password containing nine alphanumeric characters (including lowercase, uppercase, and digits) and exactly one special character (`!`), with the character positions shuffled. No password input is required. The same password is used for the generator, both VM scale sets, and the optional jump host, and remains stable across applies while its Terraform state is retained.
+
+Retrieve it after apply with `terraform output -raw admin_password`. The output is marked sensitive, so normal apply output hides it; the explicit command displays it in plaintext. Do not run that command in recorded/shared terminals or CI logs.
+
+**LAB ONLY: Change the administrator password on every VM if you keep the VMs longer than needed for testing.** Terraform also returns this reminder as `password_reminder`. This short, shared password is not a production credential. Out-of-band password changes are not automatically reflected in Terraform's generated password output.
+
+**Sensitive does not mean encrypted:** Terraform stores the generated password in state and may include it in saved plans once known. Keep those files access-restricted, out of shared/synced storage, and out of Git. Do not copy passwords into `.tfvars`.
+
+Enable the optional jump host with `enable_jump_host = true` and your administrator public IPv4 CIDR (prefer `/32`). Connect with `ssh labadmin@<jump_host_public_ip>` and enter the password. From the jump host, connect to the private addresses using the same account/password. No private-key loading or agent forwarding is required; you still need an SSH client or another SSH-capable application.
+
+Public SSH remains restricted to `admin_cidr`; other VMs have no public IP, and private SSH is allowed only from the jump host. Without a jump host, use Azure VM Run Command for administration. Password authentication is a disposable-lab convenience, not a production recommendation.
+
+If upgrading an older checkout, remove the obsolete `ssh_public_key` entry from local inputs and any previously generated key auto-input file. Review the plan carefully: changing authentication on existing VMs or VM scale sets can require replacement. Option 2 only configures rsyslog and does not change VM authentication.
 
 ## Option 2: Configure rsyslog on an existing Linux VM
 
@@ -110,7 +127,7 @@ The forwarder scale-set identity receives the built-in Reader role only on the d
 
 - Terraform 1.5 or later and an AzureRM provider 4.x-compatible installation.
 - Azure CLI authentication for Terraform (`az login` and `az account set --subscription ...`) or another supported AzureRM authentication method.
-- A subscription ID and an SSH **public** key. Never put a private key in this repository or a `.tfvars` file. Python 3.9+ is needed to run the local generator tests and capture summary utility.
+- A subscription ID. Terraform generates the lab administrator password. Python 3.9+ is needed only for local generator tests and the capture summary utility, not Terraform deployment or password setup.
 - Before planning deployment, check image/SKU availability and quota in `spaincentral`. For example, inspect `Standard_D2s_v5` and `Standard_B2s` availability, the configured Marketplace image offers/SKUs, 64-GiB and 32-GiB Standard SSD support, and the desired availability zones.
 
 ## Configure and validate locally
@@ -121,7 +138,7 @@ From `infra/`:
 copy lab.tfvars.example lab.tfvars
 ```
 
-Edit `lab.tfvars` with the subscription ID and SSH public key. The optional jump host requires setting both `enable_jump_host = true` and a real administrator public IPv4 CIDR.
+Set the subscription ID in `lab.tfvars` or override it with `-var=subscription_id=...`. No password input is needed. The optional jump host requires setting both `enable_jump_host = true` and a real administrator public IPv4 CIDR.
 
 Then run:
 
@@ -142,7 +159,7 @@ az account set --subscription $subscriptionId
 terraform plan -var-file="lab.tfvars" "-var=subscription_id=$subscriptionId" -out="lab.tfplan"
 ```
 
-Review the saved plan before applying it with `terraform apply "lab.tfplan"`. Applying creates billable Azure resources. `lab.tfvars` must contain the SSH public key; never provide a private key.
+Review the saved plan before applying it with `terraform apply "lab.tfplan"`. Applying creates billable Azure resources. Protect the saved plan and state: both contain the administrator password.
 
 ## Lab test sequence
 

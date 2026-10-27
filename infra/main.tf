@@ -272,26 +272,23 @@ resource "azurerm_lb_rule" "syslog" {
 }
 
 resource "azurerm_linux_virtual_machine_scale_set" "collectors" {
-  name                   = local.collector_name
-  resource_group_name    = azurerm_resource_group.lab.name
-  location               = azurerm_resource_group.lab.location
-  sku                    = "Standard_D2s_v5"
-  instances              = 2
-  zones                  = var.availability_zones
-  zone_balance           = length(var.availability_zones) > 0
-  single_placement_group = false
-  upgrade_mode           = "Manual"
-  overprovision          = false
-  admin_username         = var.admin_username
+  name                            = local.collector_name
+  resource_group_name             = azurerm_resource_group.lab.name
+  location                        = azurerm_resource_group.lab.location
+  sku                             = "Standard_D2s_v5"
+  instances                       = 2
+  zones                           = var.availability_zones
+  zone_balance                    = length(var.availability_zones) > 0
+  single_placement_group          = false
+  upgrade_mode                    = "Manual"
+  overprovision                   = false
+  admin_username                  = var.admin_username
+  admin_password                  = local.admin_password
+  disable_password_authentication = false
   custom_data = base64encode(templatefile("${path.module}/cloud-init/collector.yaml.tftpl", {
     collector_setup_b64 = base64encode(file("${path.module}/scripts/configure-ama-collector.sh"))
   }))
   tags = local.tags
-
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = var.ssh_public_key
-  }
 
   identity {
     type = "SystemAssigned"
@@ -335,17 +332,19 @@ resource "azurerm_linux_virtual_machine_scale_set" "collectors" {
 }
 
 resource "azurerm_linux_virtual_machine_scale_set" "forwarders" {
-  name                   = local.forwarder_name
-  resource_group_name    = azurerm_resource_group.lab.name
-  location               = azurerm_resource_group.lab.location
-  sku                    = "Standard_D2s_v5"
-  instances              = 2
-  zones                  = var.availability_zones
-  zone_balance           = length(var.availability_zones) > 0
-  single_placement_group = false
-  upgrade_mode           = "Manual"
-  overprovision          = false
-  admin_username         = var.admin_username
+  name                            = local.forwarder_name
+  resource_group_name             = azurerm_resource_group.lab.name
+  location                        = azurerm_resource_group.lab.location
+  sku                             = "Standard_D2s_v5"
+  instances                       = 2
+  zones                           = var.availability_zones
+  zone_balance                    = length(var.availability_zones) > 0
+  single_placement_group          = false
+  upgrade_mode                    = "Manual"
+  overprovision                   = false
+  admin_username                  = var.admin_username
+  admin_password                  = local.admin_password
+  disable_password_authentication = false
   custom_data = base64encode(templatefile("${path.module}/cloud-init/forwarder.yaml.tftpl", {
     forwarder_setup_b64      = base64encode(file("${path.module}/scripts/configure-rsyslog-target-pool.sh"))
     discovery_script_b64     = base64encode(file("${path.module}/scripts/discover-collector-ips.py"))
@@ -355,11 +354,6 @@ resource "azurerm_linux_virtual_machine_scale_set" "forwarders" {
     collector_scale_set_name = azurerm_linux_virtual_machine_scale_set.collectors.name
   }))
   tags = local.tags
-
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = var.ssh_public_key
-  }
 
   identity {
     type = "SystemAssigned"
@@ -523,18 +517,14 @@ resource "azurerm_linux_virtual_machine" "generator" {
   location                        = azurerm_resource_group.lab.location
   size                            = "Standard_D2s_v5"
   admin_username                  = var.admin_username
-  disable_password_authentication = true
+  admin_password                  = local.admin_password
+  disable_password_authentication = false
   network_interface_ids           = [azurerm_network_interface.generator.id]
   custom_data = base64encode(templatefile("${path.module}/cloud-init/generator.yaml.tftpl", {
     generator_script_b64 = base64encode(file("${path.module}/../scripts/generate_events.py"))
     admin_username       = var.admin_username
   }))
   tags = local.tags
-
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = var.ssh_public_key
-  }
 
   os_disk {
     caching              = "ReadWrite"
@@ -616,14 +606,10 @@ resource "azurerm_linux_virtual_machine" "jump" {
   location                        = azurerm_resource_group.lab.location
   size                            = "Standard_B2s"
   admin_username                  = var.admin_username
-  disable_password_authentication = true
+  admin_password                  = local.admin_password
+  disable_password_authentication = false
   network_interface_ids           = [azurerm_network_interface.jump[0].id]
   tags                            = local.tags
-
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = var.ssh_public_key
-  }
 
   os_disk {
     caching              = "ReadWrite"

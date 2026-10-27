@@ -1,5 +1,5 @@
 subscription_id = "00000000-0000-0000-0000-000000000000"
-ssh_public_key  = "ssh-ed25519 REPLACE_WITH_YOUR_PUBLIC_KEY"
+# Terraform generates the lab password. Retrieve with: terraform output -raw admin_password
 
 name_prefix = "rsyslog-lab"
 location    = "spaincentral"
