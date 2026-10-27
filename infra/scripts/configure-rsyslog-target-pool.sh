@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 usage() {
-  echo "Usage: $0 --destination-count N --destinations HOST [HOST ...]" >&2
+  echo "Usage: $0 --destination-count N --destinations HOST [HOST ...] [--enable-capture]" >&2
 }
 
 fail() {
@@ -12,8 +12,13 @@ fail() {
 
 destination_count=""
 destinations=()
+enable_capture=false
 while (($#)); do
   case "$1" in
+    --enable-capture)
+      enable_capture=true
+      shift
+      ;;
     --destination-count)
       (($# >= 2)) || { usage; exit 2; }
       destination_count="$2"
@@ -91,7 +96,8 @@ done
 config_dir="/etc/rsyslog.d"
 config_file="${config_dir}/49-ama-target-pool.conf"
 state_dir="/var/lib/rsyslog-ama-target-pool"
-mkdir -p "$config_dir" "$state_dir" /var/spool/rsyslog /var/log/ama-lab
+mkdir -p "$config_dir" "$state_dir" /var/spool/rsyslog
+[[ "$enable_capture" == false ]] || mkdir -p /var/log/ama-lab
 chmod 0750 "$state_dir"
 
 other_configs=()
@@ -129,16 +135,23 @@ for destination in "${destinations[@]}"; do
   target_values+="\"${escaped}\""
 done
 
+capture_template=""
+capture_action=""
+if [[ "$enable_capture" == true ]]; then
+  capture_template='template(name="AmaLabForwarderCapture" type="string" string="%timegenerated:::date-rfc3339% %syslogfacility-text% %msg%\n")'
+  capture_action='    action(type="omfile" file="/var/log/ama-lab/forwarder-received.log" template="AmaLabForwarderCapture")'
+fi
+
 candidate=$(mktemp "${config_dir}/.49-ama-target-pool.XXXXXX")
 {
   [[ -z "$module_line" ]] || printf '%s\n' "$module_line"
   if [[ "$add_listener" == true ]]; then
     printf '%s\n' 'input(type="imtcp" port="514")'
   fi
+  [[ -z "$capture_template" ]] || printf '%s\n' "$capture_template"
   cat <<EOF
-template(name="AmaLabForwarderCapture" type="string" string="%timegenerated:::date-rfc3339% %syslogfacility-text% %msg%\\n")
 if (\$syslogfacility-text == "local6" or \$syslogfacility-text == "local7") then {
-    action(type="omfile" file="/var/log/ama-lab/forwarder-received.log" template="AmaLabForwarderCapture")
+${capture_action}
     action(
         type="omfwd"
         target=[${target_values}]

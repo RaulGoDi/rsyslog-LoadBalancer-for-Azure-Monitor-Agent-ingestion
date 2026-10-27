@@ -2,6 +2,56 @@
 
 A reproducible Azure lab for measuring per-message distribution from one persistent TCP syslog connection through an rsyslog `omfwd` target pool to two Azure Monitor Agent (AMA) collectors.
 
+## Choose how to use this repository
+
+| | Option 1: Deploy the full lab with Terraform | Option 2: Configure rsyslog on an existing VM |
+|---|---|---|
+| Use when | You want a disposable test environment in your Azure subscription. | You already have the forwarder VM and two or more collector VMs. |
+| Creates Azure resources | Yes (billable) | No |
+| What it does | Builds the network, load balancer, forwarders, collectors, DCRs, generator, and optional jump host. | Writes one rsyslog `omfwd` target-pool configuration on the VM where you run it. |
+| Start at | [Option 1](#option-1-deploy-and-test-with-terraform) | [Option 2](#option-2-configure-rsyslog-on-an-existing-linux-vm) |
+
+## Option 1: Deploy and test with Terraform
+
+Prerequisites: [Terraform](https://developer.hashicorp.com/terraform/install) 1.5+, [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), Contributor-level permissions (plus permission to create role assignments) in the target subscription, and an SSH **public** key.
+
+```powershell
+git clone https://github.com/RaulGoDi/rsyslog-LoadBalancer-for-Azure-Monitor-Agent-ingestion.git
+cd rsyslog-LoadBalancer-for-Azure-Monitor-Agent-ingestion\infra
+copy lab.tfvars.example lab.tfvars      # set ssh_public_key; optionally admin_cidr/enable_jump_host
+
+$subscriptionId = "<SUBSCRIPTION_ID>"
+az login
+az account set --subscription $subscriptionId
+
+terraform init
+terraform validate
+terraform plan -var-file="lab.tfvars" "-var=subscription_id=$subscriptionId" -out="lab.tfplan"
+terraform apply "lab.tfplan"
+```
+
+Review the plan before applying: apply creates billable resources. Then follow [Lab test sequence](#lab-test-sequence) to run the generator and compare counts. When finished, run `terraform destroy -var-file="lab.tfvars" "-var=subscription_id=$subscriptionId"`.
+
+## Option 2: Configure rsyslog on an existing Linux VM
+
+Use this when the infrastructure already exists. Run the script as root **on the VM that receives logs and forwards them**. It configures one TCP `omfwd` target pool that distributes messages for `local6` and `local7` across the destinations you list (at least two).
+
+Supported: RHEL 9 and Ubuntu 24.04 with `rsyslog` and `systemd`. Required: outbound access to the script URL, and TCP/514 reachable from this VM to every destination.
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/RaulGoDi/rsyslog-LoadBalancer-for-Azure-Monitor-Agent-ingestion/main/infra/scripts/configure-rsyslog-target-pool.sh
+# or: wget https://raw.githubusercontent.com/RaulGoDi/rsyslog-LoadBalancer-for-Azure-Monitor-Agent-ingestion/main/infra/scripts/configure-rsyslog-target-pool.sh
+less configure-rsyslog-target-pool.sh          # review before running
+sudo bash configure-rsyslog-target-pool.sh --destination-count 2 --destinations 10.0.0.4 10.0.0.5
+```
+
+- `--destination-count` must equal the number of addresses supplied (for example, `3` with three IPs or DNS names).
+- Add `--enable-capture` to also log matching events locally in `/var/log/ama-lab/forwarder-received.log` for measurement. It is off by default.
+- The script validates the full rsyslog configuration before restarting, writes only `/etc/rsyslog.d/49-ama-target-pool.conf`, and restores the previous file if activation fails. It is safe to rerun with a new list of IPs.
+- Existing TCP/514 listeners are preserved. Only `local6`/`local7` events are forwarded, and this configuration stops further processing of those events on this VM (`stop`), so they are not also written by other local rules.
+- It is plaintext TCP, and the queue is bounded to 1 GiB on disk with indefinite retry. Failover is not lossless.
+- Review the script before running it with `sudo`. Pin to a commit hash instead of `main` for reproducible use.
+
 ## Architecture
 
 ```mermaid

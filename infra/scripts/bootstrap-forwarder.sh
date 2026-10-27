@@ -60,4 +60,5 @@ fi
 
 /usr/local/sbin/configure-rsyslog-target-pool.sh \
   --destination-count 2 \
+  --enable-capture \
   --destinations "${targets[@]}"
